@@ -1,12 +1,11 @@
 package com.lgellu.JwtSecurity.service.jwt;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -26,5 +25,7 @@ public class JwtProperties {
     @Min(value = 60000, message = "Expiration must be at least 1 minute (60000 ms)")
     private long expirationMs;
 
+    @Min(value = 60 * 60 * 24 * 7 * 1000L, message = "Expiration must be at least 7 days (604800000 ms)")
+    private long refreshExpirationMs;
 
 }

@@ -1,4 +1,4 @@
-package com.lgellu.JwtSecurity;
+package com.lgellu.JwtSecurity.repository;
 
 import com.lgellu.JwtSecurity.model.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;

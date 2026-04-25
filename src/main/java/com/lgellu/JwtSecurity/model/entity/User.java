@@ -28,4 +28,7 @@ public class User {
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     private Set<Role> roles;
+
+    @Column(nullable = false)
+    private int tokenVersion = 0;
 }
