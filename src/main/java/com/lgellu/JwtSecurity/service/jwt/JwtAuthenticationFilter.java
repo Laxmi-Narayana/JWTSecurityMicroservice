@@ -31,41 +31,56 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        String path = request.getRequestURI();
+        String path = request.getServletPath();
 
         if (path.startsWith("/api/auth")) {
             filterChain.doFilter(request, response);
             return;
         }
-        
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        log.warn("authHeader: {}", authHeader);
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        log.warn("Bearer");
-        String token = authHeader.substring(7);
-
-        String username;
         try {
-            username = jwtService.extractUsername(token);
+            String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                log.debug("Authorization header is null or doesn't start with Bearer");
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            String token = authHeader.substring(7);
+            String username = jwtService.extractUsername(token);
+
+            if (username == null) {
+                SecurityContextHolder.clearContext();
+                sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token, username is null");
+                return;
+            }
+
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                if (jwtService.isTokenValid(token, userDetails)) {
+                    UsernamePasswordAuthenticationToken authenticationToken =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                } else {
+                    SecurityContextHolder.clearContext();
+                    sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
+                    return;
+                }
+            }
         } catch (JwtTokenExpiredException exception) {
+            SecurityContextHolder.clearContext();
             sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Token has expired - please login again");
             return;
         } catch (InvalidJwtException exception) {
+            SecurityContextHolder.clearContext();
             sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
             return;
-        }
-        if (SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-            if (jwtService.isTokenValid(token, userDetails)) {
-                UsernamePasswordAuthenticationToken authenticationToken =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-            }
+        } catch (Exception e) {
+            log.error("JWT processing failed.");
+            SecurityContextHolder.clearContext();
+            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Authentication failed");
+            return;
         }
         filterChain.doFilter(request, response);
     }
