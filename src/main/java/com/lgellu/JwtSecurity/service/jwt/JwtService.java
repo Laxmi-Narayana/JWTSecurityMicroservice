@@ -37,8 +37,10 @@ public class JwtService {
 
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
-        if (userDetails instanceof UserDetailsImpl user)
+        if (userDetails instanceof UserDetailsImpl user) {
             claims.put("version", user.getTokenVersion());
+            claims.put("userId", user.getId());
+        }
         claims.put("roles", userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .toList());

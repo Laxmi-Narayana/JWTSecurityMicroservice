@@ -56,4 +56,8 @@ public class UserDetailsImpl implements UserDetails {
     public int getTokenVersion() {
         return user.getTokenVersion();
     }
+
+    public Long getId() {
+        return user.getId();
+    }
 }
