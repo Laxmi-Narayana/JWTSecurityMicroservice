@@ -17,6 +17,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -69,7 +71,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
         User user = userRepository.findByUsername(userRequest.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        
+
         user.setTokenVersion(user.getTokenVersion() + 1);
         userRepository.save(user);
 
@@ -116,21 +118,26 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     private void setRefreshTokenCookie(String token, HttpServletResponse response) {
-        Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE, token);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/api/auth");
-        cookie.setMaxAge((int) (jwtProperties.getRefreshExpirationMs() / 1000));
-        response.addCookie(cookie);
+        ResponseCookie resCookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, token)
+                .httpOnly(true)
+                .secure(true)    // Required for most browsers to accept SameSite=Strict
+                .path("/api/auth")
+                .maxAge(jwtProperties.getRefreshExpirationMs() / 1000)
+                .sameSite("Strict") // The security fix
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, resCookie.toString());
     }
 
     private void clearRefreshTokenCookie(HttpServletResponse response) {
-        Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE, "");
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/api/auth");
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
+        ResponseCookie resCookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/api/auth")
+                .maxAge(0)          // Deletes the cookie
+                .sameSite("Strict")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, resCookie.toString());
     }
 
     private String extractRefreshTokenFromCookie(HttpServletRequest request) {
